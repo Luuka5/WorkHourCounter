@@ -2,7 +2,7 @@ import { useCallback, useEffect, useReducer, useState } from "react";
 import { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ReactDatePicker from "react-datepicker";
-import ical from "ical";
+import ical from "cal-parser";
 import fi from "date-fns/locale/fi";
 registerLocale("fi", fi);
 
@@ -32,13 +32,12 @@ function App() {
       const icalData = await fetch("https://corsproxy.io/?" + url).then((res) =>
         res.text()
       );
-      const parsed = ical.parseICS(icalData);
+      const parsed = ical.parseString(icalData).events;
 
-      let hours = Object.values(parsed)
+      let hours = parsed
         .map((event) => {
-          if (event.type !== "VEVENT") return;
-          const start = new Date(event.start);
-          const end = new Date(event.end);
+          const start = event.dtstart.value;
+          const end = event.dtend.value;
           const duration = end.getTime() - start.getTime();
           if (
             start.getTime() < startDate.getTime() ||
