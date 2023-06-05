@@ -2,8 +2,9 @@ import { useCallback, useEffect, useReducer, useState } from "react";
 import { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ReactDatePicker from "react-datepicker";
-import ical from "cal-parser";
+import { convert } from "ical2json";
 import fi from "date-fns/locale/fi";
+import iCalDateParser from "ical-date-parser";
 registerLocale("fi", fi);
 
 function App() {
@@ -32,21 +33,27 @@ function App() {
       const icalData = await fetch("https://corsproxy.io/?" + url).then((res) =>
         res.text()
       );
-      const parsed = ical.parseString(icalData).events;
+      const parsed = convert(icalData).VCALENDAR[0].VEVENT;
 
       let hours = parsed
         .map((event) => {
-          const start = event.dtstart.value;
-          const end = event.dtend.value;
-          const duration = end.getTime() - start.getTime();
-          if (
-            start.getTime() < startDate.getTime() ||
-            start.getTime() > endDate.getTime()
-          ) {
+          try {
+            const start = iCalDateParser(event.DTSTART);
+            const end = iCalDateParser(event.DTEND);
+
+            const duration = end.getTime() - start.getTime();
+            if (
+              start.getTime() < startDate.getTime() ||
+              start.getTime() > endDate.getTime()
+            ) {
+              return 0;
+            }
+            const hours = duration / 1000 / 60 / 60;
+            return hours;
+          } catch (e) {
+            console.log(event.SUMMARY, "error:", e, "event:", event);
             return 0;
           }
-          const hours = duration / 1000 / 60 / 60;
-          return hours;
         })
         .reduce((acc, val) => acc + val, 0);
 
@@ -64,7 +71,9 @@ function App() {
 
   useEffect(() => {
     const calendars = JSON.parse(localStorage.getItem("calendars"));
-    setCalendars(calendars);
+    if (calendars) {
+      setCalendars(calendars);
+    }
     setIsLoaded(true);
   }, []);
 
